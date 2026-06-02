@@ -1,0 +1,35 @@
+# 依赖包
+node_modules/
+
+# 编译输出
+dist/
+
+# TypeScript 编译后的 JavaScript 文件
+*.js
+
+# 锁定文件
+package-lock.json
+
+# IDE 配置
+.vscode/
+.idea/
+
+# 文档文件
+README.md
+TEST.md
+
+# 其他测试文件
+main.*
+spider.*
+tcp-*.*
+
+# 环境与敏感数据
+.env
+users.json
+
+# 日志文件
+*.log
+
+# 系统临时文件
+.DS_Store
+Thumbs.db
