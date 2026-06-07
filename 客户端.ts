@@ -122,6 +122,9 @@ function createConnection(): void {
     
     isConnecting = true;
     
+    // 清空接收缓冲区，防止旧数据干扰
+    buffer = '';
+    
     if (reconnectAttempts > 0) {
         console.log(`\n正在尝试重连... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS || '∞'})`);
     }

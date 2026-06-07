@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["聊天室.ts", "客户端.ts"],
+  "exclude": ["node_modules", "dist"]
+}
