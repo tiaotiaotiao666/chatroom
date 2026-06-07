@@ -1,4 +1,4 @@
-import * as net from 'net';
+﻿import * as net from 'net';
 import * as os from 'os';
 
 const clientMap: Map<net.Socket, string> = new Map();
@@ -60,7 +60,13 @@ const server = net.createServer((socket) => {
             });
             
             socket.write(`你的昵称是: ${nickname}\n`);
-            socket.write('现在可以开始聊天了！\n> ');
+            socket.write('现在可以开始聊天了！\n');
+            socket.write('\n[系统] 可用命令:\n');
+            socket.write('  /quit 或 /exit - 退出聊天室\n');
+            socket.write('  /users - 查看在线用户\n');
+            socket.write('  /help - 显示帮助信息\n');
+            socket.write('  @用户名 消息 - 私聊指定用户\n');
+            socket.write('> ');
             return;
         }
         
@@ -79,6 +85,7 @@ const server = net.createServer((socket) => {
             
             console.log(`${leaveName} 退出了聊天室`);
             clientMap.delete(socket); // 从 Map 中移除
+            usedNicknames.delete(leaveName); // 释放昵称
             
             socket.write('[系统] 再见！\n');
             socket.end();
@@ -107,17 +114,23 @@ const server = net.createServer((socket) => {
                 const targetNickname = msg.substring(1, spaceIndex);
                 const privateMsg = msg.substring(spaceIndex + 1);
                 
+                // 检查是否私聊自己
+                if (targetNickname === nickname) {
+                    socket.write('[系统] 不能私聊自己\n');
+                    return;
+                }
+                
                 // 查找目标用户
-                let targetSocket: net.Socket | null = null;
+                let targetSocket: net.Socket | undefined;
                 clientMap.forEach((name, client) => {
                     if (name === targetNickname) {
                         targetSocket = client;
                     }
                 });
                 
-                if (targetSocket && targetSocket !== socket && targetSocket.writable) {
+                if (targetSocket && targetSocket.writable) {
                     // 发送给目标用户
-                    targetSocket.write(`[私聊-${nickname}] ${privateMsg}\n`);
+                    (targetSocket as net.Socket).write(`[私聊-${nickname}] ${privateMsg}\n`);
                     // 确认发送成功给发送者
                     socket.write(`[系统] 已发送私聊给 ${targetNickname}\n`);
                 } else {
@@ -134,7 +147,7 @@ const server = net.createServer((socket) => {
         
         const broadcastMsg = `[${nickname}] ${msg}\n`;
         clientMap.forEach((name, client) => {
-            if (client.writable) {
+            if (client !== socket && client.writable) {
                 client.write(broadcastMsg);
             }
         });
@@ -168,7 +181,29 @@ const server = net.createServer((socket) => {
     
     socket.on('error', (err) => {
         console.error(`Socket错误: ${err.message}`);
-        clientMap.delete(socket);
+        
+        // 在删除前先获取昵称，用于后续广播
+        const errorNickname = clientMap.get(socket);
+        
+        // 如果已经有昵称，需要从 Map 和集合中移除
+        if (errorNickname) {
+            usedNicknames.delete(errorNickname);
+            clientMap.delete(socket);
+            
+            // 向其他在线用户广播离开消息
+            clientMap.forEach((_, client) => {
+                if (client.writable) {
+                    client.write(`[系统] ${errorNickname} 离开了聊天室\n`);
+                }
+            });
+            
+            console.log(`客户端已断开: ${errorNickname}`);
+            hasLeftChat = true; // 阻止 close 事件重复处理
+        } else {
+            // 如果没有昵称，说明可能是在设置昵称前就断开了
+            clientMap.delete(socket);
+            console.log(`客户端已断开: ${clientInfo}`);
+        }
     });
 });
 
@@ -176,8 +211,7 @@ const PORT = 3500;
 const localIP = getLocalIP();
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('========================================'
-    + '   聊天室服务器已启动');
+    console.log('========================================');
     console.log('   聊天室服务器已启动');
     console.log('========================================');
     console.log(`本地访问: localhost:${PORT}`);
@@ -199,3 +233,5 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
+

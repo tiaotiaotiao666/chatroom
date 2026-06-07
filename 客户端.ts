@@ -1,4 +1,4 @@
-import * as net from 'net';
+﻿import * as net from 'net';
 import * as readline from 'readline';
 
 // ==================== 配置参数 ====================
@@ -46,17 +46,17 @@ function processData(data: Buffer | string): void {
  * 处理单条消息
  */
 function handleMessage(message: string): void {
+    // 检测心跳响应（如果是 PONG，不显示，直接返回）
+    if (message === 'PONG') {
+        resetHeartbeatTimeout();
+        return;
+    }
+    
     // 清除当前输入行
     process.stdout.write('\r' + ' '.repeat(80) + '\r');
     
     // 显示消息
     process.stdout.write(message + '\n');
-    
-    // 检测心跳响应
-    if (message === 'PONG') {
-        resetHeartbeatTimeout();
-        return;
-    }
     
     // 重新显示提示符
     if (rl) {
@@ -77,7 +77,9 @@ function startHeartbeat(): void {
         if (client && !client.destroyed) {
             client.write('PING\n');
             
-            // 设置超时检测
+                        // 清除上一个超时定时器，防止泄漏
+            resetHeartbeatTimeout();
+// 设置超时检测
             heartbeatTimeoutTimer = setTimeout(() => {
                 console.log('\n[系统] 心跳超时，服务器可能已断开');
                 handleDisconnect();
@@ -162,7 +164,6 @@ function createConnection(): void {
     client.on('error', (err) => {
         console.error(`\n❌ 连接错误: ${err.message}`);
         isConnecting = false;
-        handleDisconnect();
     });
     
     // 监听关闭事件
@@ -176,7 +177,6 @@ function createConnection(): void {
     client.on('end', () => {
         console.log('\n⚠️  服务器主动关闭连接');
         isConnecting = false;
-        handleDisconnect();
     });
 }
 
@@ -248,6 +248,20 @@ function setupReadline(): void {
             return;
         }
         
+        // 特殊命令：退出聊天室（不重连）
+        if (input === '/quit' || input === '/exit') {
+            shouldReconnect = false;
+            sendMessage(input);
+            setTimeout(() => {
+                if (client) {
+                    client.end();
+                }
+                console.log('再见！');
+                process.exit(0);
+            }, 500);
+            return;
+        }
+        
         // 特殊命令：强制退出（不重连）
         if (input === '/forcequit' || input === '/fq') {
             shouldReconnect = false;
@@ -314,7 +328,7 @@ process.on('uncaughtException', (err) => {
 // ==================== 启动程序 ====================
 
 console.log('========================================');
-console.log('   高级聊天室客户端');
+console.log('   聊天室客户端');
 console.log('========================================');
 console.log(`服务器地址: ${HOST}:${PORT}`);
 console.log(`心跳间隔: ${HEARTBEAT_INTERVAL/1000}秒`);
